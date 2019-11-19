@@ -32,9 +32,9 @@ class WordEmbedding(nn.Module):
         val_len = np.zeros(B, dtype=np.int64)
         for i, (one_q, one_col) in enumerate(zip(q, col)):
             if self.trainable:
-                q_val = map(lambda x:self.w2i.get(x, 0), one_q)
+                q_val = list(map(lambda x:self.w2i.get(x, 0), one_q))
             else:
-                q_val = map(lambda x:self.word_emb.get(x, np.zeros(self.N_word, dtype=np.float32)), one_q)
+                q_val = list(map(lambda x:self.word_emb.get(x, np.zeros(self.N_word, dtype=np.float32)), one_q))
             if self.our_model:
                 if self.trainable:
                     val_embs.append([1] + q_val + [2])  #<BEG> and <END>
@@ -44,10 +44,10 @@ class WordEmbedding(nn.Module):
             else:
                 one_col_all = [x for toks in one_col for x in toks+[',']]
                 if self.trainable:
-                    col_val = map(lambda x:self.w2i.get(x, 0), one_col_all)
+                    col_val = list(map(lambda x:self.w2i.get(x, 0), one_col_all))
                     val_embs.append( [0 for _ in self.SQL_TOK] + col_val + [0] + q_val+ [0])
                 else:
-                    col_val = map(lambda x:self.word_emb.get(x, np.zeros(self.N_word, dtype=np.float32)), one_col_all)
+                    col_val = list(map(lambda x:self.word_emb.get(x, np.zeros(self.N_word, dtype=np.float32)), one_col_all))
                     val_embs.append( [np.zeros(self.N_word, dtype=np.float32) for _ in self.SQL_TOK] + col_val + [np.zeros(self.N_word, dtype=np.float32)] + q_val+ [np.zeros(self.N_word, dtype=np.float32)])
                 val_len[i] = len(self.SQL_TOK) + len(col_val) + 1 + len(q_val) + 1
         max_len = max(val_len)

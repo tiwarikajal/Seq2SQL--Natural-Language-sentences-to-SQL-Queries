@@ -143,7 +143,7 @@ def epoch_train(model, optimizer, batch_size, sql_data, table_data, pred_entry):
         score = model.forward(q_seq, col_seq, col_num, pred_entry,
                 gt_where=gt_where_seq, gt_cond=gt_cond_seq, gt_sel=gt_sel_seq)
         loss = model.loss(score, ans_seq, pred_entry, gt_where_seq)
-        cum_loss += loss.data.cpu().numpy()[0]*(ed - st)
+        cum_loss += loss.data.cpu().numpy() * (ed - st)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -284,6 +284,6 @@ def load_word_emb(file_name, load_used=False, use_small=False):
         print ('Load used word embedding')
         with open('glove/word2idx.json',encoding="utf-8") as inf:
             w2i = json.load(inf)
-        with open('glove/usedwordemb.npy',encoding="utf-8") as inf:
+        with open('glove/usedwordemb.npy', 'rb') as inf:
             word_emb_val = np.load(inf)
         return w2i, word_emb_val

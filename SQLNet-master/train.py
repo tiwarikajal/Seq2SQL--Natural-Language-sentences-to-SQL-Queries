@@ -122,7 +122,7 @@ if __name__ == '__main__':
             torch.save(model.cond_pred.state_dict(), cond_m)
             if args.train_emb:
                 torch.save(model.cond_embed_layer.state_dict(), cond_e)
-        for i in range(100):
+        for i in range(2):
             print ('Epoch %d @ %s'%(i+1, datetime.datetime.now()))
             print (' Loss = %s'%epoch_train(
                     model, optimizer, BATCH_SIZE, 
