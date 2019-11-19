@@ -26,8 +26,8 @@ if __name__ == '__main__':
             help='Train word embedding for SQLNet(requires pretrained model).')
     args = parser.parse_args()
 
-    N_word=300
-    B_word=42
+    N_word=100
+    B_word=6
     if args.toy:
         USE_SMALL=True
         GPU=True
@@ -80,8 +80,9 @@ if __name__ == '__main__':
                 epoch_acc(model, BATCH_SIZE, val_sql_data,\
                 val_table_data, TRAIN_ENTRY))
         print ("Init dev acc_ex: %s"%epoch_exec_acc(
-                model, BATCH_SIZE, val_sql_data, val_table_data, DEV_DB)
-        torch.save(model.cond_pred.state_dict(), cond_m))
+                model, BATCH_SIZE, val_sql_data, val_table_data, DEV_DB))
+        
+        torch.save(model.cond_pred.state_dict(), cond_m)
         for i in range(100):
             print ('Epoch %d @ %s'%(i+1, datetime.datetime.now()))
             print (' Avg reward = %s'%epoch_reinforce_train(

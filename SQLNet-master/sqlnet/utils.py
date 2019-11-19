@@ -15,7 +15,7 @@ def load_data(sql_paths, table_paths, use_small=False):
     max_col_num = 0
     for SQL_PATH in sql_paths:
         print ("Loading data from %s"%SQL_PATH)
-        with open(SQL_PATH) as inf:
+        with open(SQL_PATH, encoding="utf-8") as inf:
             for idx, line in enumerate(inf):
                 if use_small and idx >= 1000:
                     break
@@ -24,7 +24,7 @@ def load_data(sql_paths, table_paths, use_small=False):
 
     for TABLE_PATH in table_paths:
         print ("Loading data from %s"%TABLE_PATH)
-        with open(TABLE_PATH) as inf:
+        with open(TABLE_PATH, encoding="utf-8") as inf:
             for line in inf:
                 tab = json.loads(line.strip())
                 table_data[tab[u'id']] = tab
@@ -277,7 +277,8 @@ def load_word_emb(file_name, load_used=False, use_small=False):
                     break
                 info = line.strip().split(' ')
                 if info[0].lower() not in ret:
-                    ret[info[0]] = np.array(map(lambda x:float(x), info[1:]))
+
+                    ret[info[0]] = np.array([float(x) for x in info[1:]])
         return ret
     else:
         print ('Load used word embedding')

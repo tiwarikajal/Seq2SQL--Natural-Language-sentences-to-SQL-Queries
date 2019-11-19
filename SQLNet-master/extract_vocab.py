@@ -4,7 +4,7 @@ from sqlnet.utils import *
 import numpy as np
 import datetime
 
-LOCAL_TEST=False
+LOCAL_TEST=True
 
 
 if LOCAL_TEST:
@@ -22,15 +22,17 @@ sql_data, table_data, val_sql_data, val_table_data,\
 word_emb = load_word_emb('glove/glove.%dB.%dd.txt'%(B_word,N_word),
         use_small=USE_SMALL)
 print ("Length of word vocabulary: %d"%len(word_emb))
-
+print (word_emb['the'])
 word_to_idx = {'<UNK>':0, '<BEG>':1, '<END>':2}
 word_num = 3
 embs = [np.zeros(N_word,dtype=np.float32) for _ in range(word_num)]
+print (embs[0])
 
 def check_and_add(tok):
     #Check if the tok is in the vocab. If not, add it.
     global word_num
     if tok not in word_to_idx and tok in word_emb:
+        # print (tok)
         word_to_idx[tok] = word_num
         word_num += 1
         embs.append(word_emb[tok])
@@ -59,7 +61,9 @@ for tab in test_table_data.values():
 
 print ("Length of used word vocab: %s"%len(word_to_idx))
 
+# for emb in embs:
+#     print (emb.shape)
 emb_array = np.stack(embs, axis=0)
 with open('glove/word2idx.json', 'w', encoding="utf-8",errors='ignore') as outf:
     json.dump(word_to_idx, outf)
-np.save(open('glove/usedwordemb.npy', 'w' ,encoding="utf-8",errors='ignore'), emb_array)
+np.save(open('glove/usedwordemb.npy', 'wb'), emb_array)

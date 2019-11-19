@@ -4,10 +4,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
-from modules.word_embedding import WordEmbedding
-from modules.aggregator_predict import AggPredictor
-from modules.selection_predict import SelPredictor
-from modules.sqlnet_condition_predict import SQLNetCondPredictor
+from sqlnet.model.modules.word_embedding import WordEmbedding
+from sqlnet.model.modules.aggregator_predict import AggPredictor
+from sqlnet.model.modules.selection_predict import SelPredictor
+from sqlnet.model.modules.sqlnet_condition_predict import SQLNetCondPredictor
 
 
 class SQLNet(nn.Module):
@@ -231,9 +231,9 @@ class SQLNet(nn.Module):
 
     def check_acc(self, vis_info, pred_queries, gt_queries, pred_entry):
         def pretty_print(vis_data):
-            print 'question:', vis_data[0]
-            print 'headers: (%s)'%(' || '.join(vis_data[1]))
-            print 'query:', vis_data[2]
+            print ('question:', vis_data[0])
+            print ('headers: (%s)'%(' || '.join(vis_data[1])))
+            print ('query:', vis_data[2])
 
         def gen_cond_str(conds, header):
             if len(conds) == 0:

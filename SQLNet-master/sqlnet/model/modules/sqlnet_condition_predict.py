@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
-from net_utils import run_lstm, col_name_encode
+from sqlnet.model.modules.net_utils import run_lstm, col_name_encode
 
 class SQLNetCondPredictor(nn.Module):
     def __init__(self, N_word, N_h, N_depth, max_col_num, max_tok_num, use_ca, gpu):
@@ -15,36 +15,34 @@ class SQLNetCondPredictor(nn.Module):
         self.gpu = gpu
         self.use_ca = use_ca
 
-        self.cond_num_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h/2,
-                num_layers=N_depth, batch_first=True,
-                dropout=0.3, bidirectional=True)
+        self.cond_num_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2, num_layers=N_depth, batch_first=True, dropout=0.3, bidirectional=True)
         self.cond_num_att = nn.Linear(N_h, 1)
         self.cond_num_out = nn.Sequential(nn.Linear(N_h, N_h),
                 nn.Tanh(), nn.Linear(N_h, 5))
-        self.cond_num_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h/2,
+        self.cond_num_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
         self.cond_num_col_att = nn.Linear(N_h, 1)
         self.cond_num_col2hid1 = nn.Linear(N_h, 2*N_h)
         self.cond_num_col2hid2 = nn.Linear(N_h, 2*N_h)
 
-        self.cond_col_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h/2,
+        self.cond_col_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
         if use_ca:
-            print "Using column attention on where predicting"
+            print ("Using column attention on where predicting")
             self.cond_col_att = nn.Linear(N_h, N_h)
         else:
-            print "Not using column attention on where predicting"
+            print ("Not using column attention on where predicting")
             self.cond_col_att = nn.Linear(N_h, 1)
-        self.cond_col_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h/2,
+        self.cond_col_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
         self.cond_col_out_K = nn.Linear(N_h, N_h)
         self.cond_col_out_col = nn.Linear(N_h, N_h)
         self.cond_col_out = nn.Sequential(nn.ReLU(), nn.Linear(N_h, 1))
 
-        self.cond_op_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h/2,
+        self.cond_op_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
         if use_ca:
@@ -52,20 +50,20 @@ class SQLNetCondPredictor(nn.Module):
         else:
             self.cond_op_att = nn.Linear(N_h, 1)
         self.cond_op_out_K = nn.Linear(N_h, N_h)
-        self.cond_op_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h/2,
+        self.cond_op_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
         self.cond_op_out_col = nn.Linear(N_h, N_h)
         self.cond_op_out = nn.Sequential(nn.Linear(N_h, N_h), nn.Tanh(),
                 nn.Linear(N_h, 3))
 
-        self.cond_str_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h/2,
+        self.cond_str_lstm = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
         self.cond_str_decoder = nn.LSTM(input_size=self.max_tok_num,
                 hidden_size=N_h, num_layers=N_depth,
                 batch_first=True, dropout=0.3)
-        self.cond_str_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h/2,
+        self.cond_str_name_enc = nn.LSTM(input_size=N_word, hidden_size=N_h//2,
                 num_layers=N_depth, batch_first=True,
                 dropout=0.3, bidirectional=True)
         self.cond_str_out_g = nn.Linear(N_h, N_h)
