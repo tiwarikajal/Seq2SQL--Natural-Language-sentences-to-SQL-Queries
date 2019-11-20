@@ -39,7 +39,8 @@ class DBEngine:
                 val = val.lower()
             if schema['col{}'.format(col_index)] == 'real' and not isinstance(val, (int, float)):
                 try:
-                    val = float(parse_decimal(val))
+                    # print (val)
+                    val = float(parse_decimal(val, locale='en_US'))
                 except NumberFormatError as e:
                     val = float(num_re.findall(val)[0])
             where_clause.append('col{} {} :col{}'.format(col_index, cond_ops[op], col_index))

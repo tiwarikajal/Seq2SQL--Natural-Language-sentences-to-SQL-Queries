@@ -8,7 +8,7 @@ LOCAL_TEST=True
 
 
 if LOCAL_TEST:
-    N_word=100
+    N_word=300
     B_word=6
     USE_SMALL=True
 else:

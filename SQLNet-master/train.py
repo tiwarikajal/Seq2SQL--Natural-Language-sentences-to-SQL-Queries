@@ -26,7 +26,7 @@ if __name__ == '__main__':
             help='Train word embedding for SQLNet(requires pretrained model).')
     args = parser.parse_args()
 
-    N_word=100
+    N_word=300
     B_word=6
     if args.toy:
         USE_SMALL=True
@@ -122,7 +122,7 @@ if __name__ == '__main__':
             torch.save(model.cond_pred.state_dict(), cond_m)
             if args.train_emb:
                 torch.save(model.cond_embed_layer.state_dict(), cond_e)
-        for i in range(2):
+        for i in range(50):
             print ('Epoch %d @ %s'%(i+1, datetime.datetime.now()))
             print (' Loss = %s'%epoch_train(
                     model, optimizer, BATCH_SIZE, 

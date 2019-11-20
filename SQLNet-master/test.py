@@ -24,7 +24,7 @@ if __name__ == '__main__':
             help='Use trained word embedding for SQLNet.')
     args = parser.parse_args()
 
-    N_word=100
+    N_word=300
     B_word=6
     if args.toy:
         USE_SMALL=True
