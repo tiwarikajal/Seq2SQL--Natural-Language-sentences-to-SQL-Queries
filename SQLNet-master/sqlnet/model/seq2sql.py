@@ -17,9 +17,8 @@ from sqlnet.model.modules.seq2sql_condition_predict import Seq2SQLCondPredictor
 
 class Seq2SQL(nn.Module):
     def __init__(self, word_emb, N_word, N_h=100, N_depth=2,
-                 gpu=False, trainable_emb=False):
+                 gpu=False):
         super(Seq2SQL, self).__init__()
-        self.trainable_emb = trainable_emb
 
         self.gpu = gpu
         self.N_h = N_h
@@ -34,17 +33,13 @@ class Seq2SQL(nn.Module):
         #Word embedding
    
         self.agg_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                             self.SQL_TOK, our_model=False,
-                                             trainable=trainable_emb)
+                                             self.SQL_TOK, our_model=False)
         self.sel_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                             self.SQL_TOK, our_model=False,
-                                             trainable=trainable_emb)
+                                             self.SQL_TOK, our_model=False)
         self.cond_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                              self.SQL_TOK, our_model=False,
-                                              trainable=trainable_emb)
+                                              self.SQL_TOK, our_model=False)
         self.embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                             self.SQL_TOK, our_model=False,
-                                             trainable=trainable_emb)
+                                             self.SQL_TOK, our_model=False)
 
         #Predict aggregator
         self.agg_pred = AggPredictor(N_word, N_h, N_depth, use_ca=False)
@@ -87,7 +82,7 @@ class Seq2SQL(nn.Module):
 
 
     def forward(self, q, col, col_num, pred_entry,
-                gt_where = None, gt_cond=None, reinforce=False, gt_sel=None):
+                gt_where = None, gt_cond=None, gt_sel=None):
         B = len(q)
         pred_agg, pred_sel, pred_cond = pred_entry
 
@@ -95,48 +90,21 @@ class Seq2SQL(nn.Module):
         sel_score = None
         cond_score = None
 
-        if self.trainable_emb:
-            if pred_agg:
-                x_emb_var, x_len = self.agg_embed_layer.gen_x_batch(q, col)
-                batch = self.agg_embed_layer.gen_col_batch(col)
-                col_inp_var, col_name_len, col_len = batch
-                max_x_len = max(x_len)
-                agg_score = self.agg_pred(x_emb_var, x_len)
+        x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col)
+        batch = self.embed_layer.gen_col_batch(col)
+        col_inp_var, col_name_len, col_len = batch
+        max_x_len = max(x_len)
+        if pred_agg:
+            agg_score = self.agg_pred(x_emb_var, x_len)
 
-            if pred_sel:
-                x_emb_var, x_len = self.sel_embed_layer.gen_x_batch(q, col)
-                batch = self.sel_embed_layer.gen_col_batch(col)
-                col_inp_var, col_name_len, col_len = batch
-                max_x_len = max(x_len)
-                sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var,
-                                          col_name_len, col_len, col_num)
+        if pred_sel:
+            sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var,
+                                      col_name_len, col_len, col_num)
 
-            if pred_cond:
-                x_emb_var, x_len = self.cond_embed_layer.gen_x_batch(q, col)
-                batch = self.cond_embed_layer.gen_col_batch(col)
-                col_inp_var, col_name_len, col_len = batch
-                max_x_len = max(x_len)
-                cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var,
-                                            col_name_len, col_len, col_num,
-                                            gt_where, gt_cond,
-                                            reinforce=reinforce)
-        else:
-            x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col)
-            batch = self.embed_layer.gen_col_batch(col)
-            col_inp_var, col_name_len, col_len = batch
-            max_x_len = max(x_len)
-            if pred_agg:
-                agg_score = self.agg_pred(x_emb_var, x_len)
-
-            if pred_sel:
-                sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var,
-                                          col_name_len, col_len, col_num)
-
-            if pred_cond:
-                cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var,
-                                            col_name_len, col_len, col_num,
-                                            gt_where, gt_cond,
-                                            reinforce=reinforce)
+        if pred_cond:
+            cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var,
+                                        col_name_len, col_len, col_num,
+                                        gt_where, gt_cond)
 
         return (agg_score, sel_score, cond_score)
 
@@ -178,23 +146,6 @@ class Seq2SQL(nn.Module):
                     cond_pred_score, cond_truth_var.long()) / len(gt_where) )
 
         return loss
-
-    def reinforce_backward(self, score, rewards):
-        agg_score, sel_score, cond_score = score
-
-        cur_reward = rewards[:]
-        eof = self.SQL_TOK.index('<END>')
-        for t in range(len(cond_score[1])):
-            reward_inp = torch.FloatTensor(cur_reward).unsqueeze(1)
-            if self.gpu:
-                reward_inp = reward_inp.cuda()
-            cond_score[1][t].reinforce(reward_inp)
-
-            for b in range(len(rewards)):
-                if cond_score[1][t][b].data.cpu().numpy()[0] == eof:
-                    cur_reward[b] = 0
-        torch.autograd.backward(cond_score[1], [None for _ in cond_score[1]])
-        return
 
     def check_acc(self, vis_info, pred_queries, gt_queries, pred_entry):
         def pretty_print(vis_data):
@@ -274,8 +225,7 @@ class Seq2SQL(nn.Module):
 
         return np.array((agg_err, sel_err, cond_err)), tot_err
 
-    def gen_query(self, score, q, col, raw_q, raw_col, pred_entry,
-                  reinforce=False, verbose=False):
+    def gen_query(self, score, q, col, raw_q, raw_col, pred_entry, verbose=False):
         def merge_tokens(tok_list, raw_tok_str):
             tok_str = raw_tok_str.lower()
             alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789$('
@@ -316,7 +266,7 @@ class Seq2SQL(nn.Module):
         elif pred_sel:
             B = len(sel_score)
         elif pred_cond:
-            B = len(cond_score[0]) if reinforce else len(cond_score)
+            B = len(cond_score)
         for b in range(B):
             cur_query = {}
             if pred_agg:
@@ -329,22 +279,12 @@ class Seq2SQL(nn.Module):
                            [x for toks in col[b] for x in
                             toks+[',']] + [''] + q[b] + ['']
                 cond_toks = []
-                if reinforce:
-                    for choices in cond_score[1]:
-                        if choices[b].data.cpu().numpy()[0] < len(all_toks):
-                            cond_val = all_toks[choices[b].data.cpu().numpy()[0]]
-                        else:
-                            cond_val = '<UNK>'
-                        if cond_val == '<END>':
-                            break
-                        cond_toks.append(cond_val)
-                else:
-                    for where_score in cond_score[b].data.cpu().numpy():
-                        cond_tok = np.argmax(where_score)
-                        cond_val = all_toks[cond_tok]
-                        if cond_val == '<END>':
-                            break
-                        cond_toks.append(cond_val)
+                for where_score in cond_score[b].data.cpu().numpy():
+                    cond_tok = np.argmax(where_score)
+                    cond_val = all_toks[cond_tok]
+                    if cond_val == '<END>':
+                        break
+                    cond_toks.append(cond_val)
 
                 if verbose:
                     print (cond_toks)

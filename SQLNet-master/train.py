@@ -2,18 +2,19 @@ import torch
 from sqlnet.utils import *
 from sqlnet.model.seq2sql import Seq2SQL
 import datetime
-
+import xml.etree.ElementTree as ET
+from lxml import etree
+etree.XMLParser().
+ET.fromstring
 import argparse
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--toy', action='store_true',
                         help='If set, use small data; used for fast debugging.')
-    parser.add_argument('--train_emb', action='store_true',
-                        help='Train word embedding for SQLNet(requires pretrained model).')
     args = parser.parse_args()
 
-    N_word = 100
+    N_word = 300
     B_word = 6
     if args.toy:
         USE_SMALL = True
@@ -32,13 +33,11 @@ if __name__ == '__main__':
     TRAIN_ENTRY = (True, True, True)  # (AGG, SEL, COND)
     TRAIN_AGG, TRAIN_SEL, TRAIN_COND = TRAIN_ENTRY
 
-    word_emb = load_word_emb('glove/glove.%dB.%dd.txt' % (B_word, N_word), \
-                             load_used=args.train_emb, use_small=USE_SMALL)
+    word_emb = load_word_emb('glove/glove.%dB.%dd.txt' % (B_word, N_word), use_small=USE_SMALL)
 
-    model = Seq2SQL(word_emb, N_word=N_word, gpu=GPU, trainable_emb=args.train_emb)
-    assert not args.train_emb, "Seq2SQL can\'t train embedding."
-    optimizer = torch.optim.Adam(model.parameters(),
-                                 lr=learning_rate, weight_decay=0)
+    model = Seq2SQL(word_emb, N_word=N_word, gpu=GPU)
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr = learning_rate, weight_decay = 0)
 
     agg_m, sel_m, cond_m = best_model_name(args)
 

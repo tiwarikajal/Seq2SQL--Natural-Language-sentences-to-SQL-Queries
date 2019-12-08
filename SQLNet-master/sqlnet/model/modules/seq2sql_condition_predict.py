@@ -48,7 +48,7 @@ class Seq2SQLCondPredictor(nn.Module):
 
 
     def forward(self, x_emb_var, x_len, col_inp_var, col_name_len, col_len,
-            col_num, gt_where, gt_cond, reinforce):
+            col_num, gt_where, gt_cond):
         max_x_len = max(x_len)
         B = len(x_len)
 

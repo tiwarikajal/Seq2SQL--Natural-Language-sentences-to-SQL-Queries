@@ -195,21 +195,13 @@ def epoch_acc(model, batch_size, sql_data, table_data, pred_entry):
 
 
 def load_word_emb(file_name, load_used=False, use_small=False):
-    if not load_used:
-        print('Loading word embedding from %s' % file_name)
-        ret = {}
-        with open(file_name, encoding="utf-8") as inf:
-            for idx, line in enumerate(inf):
-                if use_small and idx >= 5000:
-                    break
-                info = line.strip().split(' ')
-                if info[0].lower() not in ret:
-                    ret[info[0]] = np.array([float(x) for x in info[1:]])
-        return ret
-    else:
-        print('Load used word embedding')
-        with open('glove/word2idx.json', encoding="utf-8") as inf:
-            w2i = json.load(inf)
-        with open('glove/usedwordemb.npy', 'rb') as inf:
-            word_emb_val = np.load(inf)
-        return w2i, word_emb_val
+    print('Loading word embedding from %s' % file_name)
+    ret = {}
+    with open(file_name, encoding="utf-8") as inf:
+        for idx, line in enumerate(inf):
+            if use_small and idx >= 5000:
+                break
+            info = line.strip().split(' ')
+            if info[0].lower() not in ret:
+                ret[info[0]] = np.array([float(x) for x in info[1:]])
+    return ret

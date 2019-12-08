@@ -7,11 +7,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--toy', action='store_true',
                         help='If set, use small data; used for fast debugging.')
-    parser.add_argument('--train_emb', action='store_true',
-                        help='Use trained word embedding for SQLNet.')
     args = parser.parse_args()
 
-    N_word = 100
+    N_word = 300
     B_word = 6
     if args.toy:
         USE_SMALL = True
@@ -30,7 +28,7 @@ if __name__ == '__main__':
     word_emb = load_word_emb('glove/glove.%dB.%dd.txt' % (B_word, N_word),
                              load_used=True, use_small=USE_SMALL)  # load_used can speed up loading
 
-    model = Seq2SQL(word_emb, N_word=N_word, gpu=GPU, trainable_emb=True)
+    model = Seq2SQL(word_emb, N_word=N_word, gpu=GPU)
 
     agg_m, sel_m, cond_m = best_model_name(args)
     print ("Loading from %s"%agg_m)
