@@ -1,9 +1,5 @@
-import json
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-import numpy as np
 from sqlnet.model.modules.net_utils import run_lstm, col_name_encode
 
 class SelPredictor(nn.Module):

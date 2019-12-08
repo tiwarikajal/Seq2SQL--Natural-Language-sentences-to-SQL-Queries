@@ -1,7 +1,5 @@
-import json
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 from sqlnet.model.modules.net_utils import run_lstm
@@ -72,7 +70,6 @@ class Seq2SQLCondPredictor(nn.Module):
         else:
             h_enc_expand = h_enc.unsqueeze(1)
             scores = []
-            choices = []
             done_set = set()
 
             t = 0
@@ -94,12 +91,9 @@ class Seq2SQLCondPredictor(nn.Module):
                         cur_cond_score[b, num:] = -100
                 scores.append(cur_cond_score)
 
-                if not reinforce:
-                    _, ans_tok_var = cur_cond_score.view(B, max_x_len).max(1)
-                    ans_tok_var = ans_tok_var.unsqueeze(1)
-                else:
-                    ans_tok_var = self.softmax(cur_cond_score).multinomial()
-                    choices.append(ans_tok_var)
+                _, ans_tok_var = cur_cond_score.view(B, max_x_len).max(1)
+                ans_tok_var = ans_tok_var.unsqueeze(1)
+
                 ans_tok = ans_tok_var.data.cpu()
                 if self.gpu:  #To one-hot
                     cur_inp = Variable(torch.zeros(
@@ -116,7 +110,4 @@ class Seq2SQLCondPredictor(nn.Module):
 
             cond_score = torch.stack(scores, 1)
 
-        if reinforce:
-            return cond_score, choices
-        else:
-            return cond_score
+        return cond_score

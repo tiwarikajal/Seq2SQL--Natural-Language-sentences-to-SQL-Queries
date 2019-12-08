@@ -32,18 +32,17 @@ class Seq2SQL(nn.Module):
         self.COND_OPS = ['EQL', 'GT', 'LT']
 
         #Word embedding
-        if trainable_emb:
-            self.agg_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                                 self.SQL_TOK, our_model=False,
-                                                 trainable=trainable_emb)
-            self.sel_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                                 self.SQL_TOK, our_model=False,
-                                                 trainable=trainable_emb)
-            self.cond_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                                  self.SQL_TOK, our_model=False,
-                                                  trainable=trainable_emb)
-        else:
-            self.embed_layer = WordEmbedding(word_emb, N_word, gpu,
+   
+        self.agg_embed_layer = WordEmbedding(word_emb, N_word, gpu,
+                                             self.SQL_TOK, our_model=False,
+                                             trainable=trainable_emb)
+        self.sel_embed_layer = WordEmbedding(word_emb, N_word, gpu,
+                                             self.SQL_TOK, our_model=False,
+                                             trainable=trainable_emb)
+        self.cond_embed_layer = WordEmbedding(word_emb, N_word, gpu,
+                                              self.SQL_TOK, our_model=False,
+                                              trainable=trainable_emb)
+        self.embed_layer = WordEmbedding(word_emb, N_word, gpu,
                                              self.SQL_TOK, our_model=False,
                                              trainable=trainable_emb)
 
@@ -274,7 +273,6 @@ class Seq2SQL(nn.Module):
                 tot_err += 1
 
         return np.array((agg_err, sel_err, cond_err)), tot_err
-
 
     def gen_query(self, score, q, col, raw_q, raw_col, pred_entry,
                   reinforce=False, verbose=False):
