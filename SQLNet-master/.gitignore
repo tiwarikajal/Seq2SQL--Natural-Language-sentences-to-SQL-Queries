@@ -8,3 +8,4 @@ glove/*
 saved_model/*
 !saved_model/.keep
 .idea/*
+data/*
