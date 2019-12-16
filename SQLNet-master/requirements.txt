@@ -1,3 +1,7 @@
+pandas
+matplotlib
+numpy
+torch
 Babel==2.5.1
 docopt==0.6.2
 et-xmlfile==1.0.1
