@@ -44,32 +44,13 @@ class DataConversionUtil:
         print(query, result)
 
     @staticmethod
-    def write_query_to_file(query_str):
-        """Write Query to file"""
-        file = open("data/train_sql.txt", "a+", encoding="utf-8")
-        file.write(query_str)
-        file.write("\n")
-        file.close()
-
-    @staticmethod
-    def write_english_sentence_to_file(en_str):
-        """Write Query to file"""
-        file = open("data/train_en.txt", "a+", encoding="utf-8")
-        file.write(en_str)
-        file.write("\n")
-        file.close()
-
-    @staticmethod
     def tokenize_document(doc, print_token = False):
-        # doc = doc.lower()
         operators = {'=' : 'EQL', '>' : 'GT', '<' : 'LT'}
         syntax_tokens = ["SELECT", "COUNT", "WHERE", "AND", "OR", "FROM"]
         tokens = nltk.word_tokenize(doc)
         for i in range(len(tokens)):
             if tokens[i] in syntax_tokens:
                 continue
-            # if print_token:
-            #     print (tokens[i])
             if tokens[i] in operators.keys():
                 tokens[i] = operators[tokens[i]]
             else:

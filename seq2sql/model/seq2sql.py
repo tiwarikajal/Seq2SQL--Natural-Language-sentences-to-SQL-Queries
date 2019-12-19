@@ -11,6 +11,12 @@ from library.query import Query
 
 
 class Seq2SQL(nn.Module):
+    """
+    Seq2Sql Model which is internally comprised of three individual models
+    1. Aggregation predictor
+    2. Selection Predictor
+    3. Condition Predictor
+    """
     def __init__(self, word_emb, N_word, N_h=100, N_depth=2,
                  gpu=False):
         super(Seq2SQL, self).__init__()
@@ -19,36 +25,35 @@ class Seq2SQL(nn.Module):
         self.N_h = N_h
         self.N_depth = N_depth
 
-        self.max_col_num = 45
-        self.max_tok_num = 200
-        self.SQL_TOK = ['<UNK>', '<END>', 'WHERE', 'AND',
-                        'EQL', 'GT', 'LT', '<BEG>']
-        self.COND_OPS = ['EQL', 'GT', 'LT']
+        self.maximum_column_count = 45
+        self.maximum_token_count = 200
+        self.SQL_SYNTAX_TOKENS = [
+            '<UNK>', '<END>', 'WHERE', 'AND',
+            'EQL', 'GT', 'LT', '<BEG>'
+        ]
 
         # Word embedding
-        self.embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                         self.SQL_TOK, our_model=False)
+        self.embed_layer = WordEmbedding(word_emb, N_word, gpu, self.SQL_SYNTAX_TOKENS, our_model=False)
 
-        # Predict aggregator
+        # Model for predicting aggregation clause
         self.agg_pred = AggregationPredictor(N_word, N_h, N_depth)
 
-        # Predict selected column
-        self.sel_pred = SelectionClausePredictor(N_word, N_h, N_depth, self.max_tok_num)
+        # Model for predicting select columns
+        self.sel_pred = SelectionClausePredictor(N_word, N_h, N_depth, self.maximum_token_count)
 
-        # Predict number of cond
-        self.cond_pred = ConditionPredictor(
-            N_word, N_h, N_depth, self.max_col_num, self.max_tok_num, gpu)
+        # Model for predicting the conditions
+        self.cond_pred = ConditionPredictor(N_word, N_h, N_depth, self.maximum_column_count, self.maximum_token_count, gpu)
 
         # Loss function
         self.CE = nn.CrossEntropyLoss()
         if gpu:
             self.cuda()
 
-    def generate_gt_where_seq(self, q, col, query):
+    def generate_ground_truth_where_seq(self, q, col, query):
         ret_seq = []
         for cur_q, cur_col, cur_query in zip(q, col, query):
             connect_col = [tok for col_tok in cur_col for tok in col_tok + [',']]
-            all_toks = self.SQL_TOK + connect_col + [None] + cur_q + [None]
+            all_toks = self.SQL_SYNTAX_TOKENS + connect_col + [None] + cur_q + [None]
             cur_seq = [all_toks.index('<BEG>')]
             if 'WHERE' in cur_query:
                 cur_where_query = cur_query[cur_query.index('WHERE'):]
@@ -58,27 +63,20 @@ class Seq2SQL(nn.Module):
             ret_seq.append(cur_seq)
         return ret_seq
 
-    def forward(self, q, col, col_num, gt_where=None, gt_cond=None, gt_sel=None):
-        B = len(q)
-
-        agg_score = None
-        sel_score = None
-        cond_score = None
-
+    def forward(self, q, col, col_num, ground_truth_where=None, ground_truth_cond=None, ground_truth_sel=None):
         x_emb_var, x_len = self.embed_layer.gen_x_batch(q, col)
         batch = self.embed_layer.gen_col_batch(col)
         col_inp_var, col_name_len, col_len = batch
-        max_x_len = max(x_len)
 
         agg_score = self.agg_pred(x_emb_var, x_len)
 
         sel_score = self.sel_pred(x_emb_var, x_len, col_inp_var, col_name_len, col_len, col_num)
 
-        cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var, col_name_len, col_len, col_num, gt_where, gt_cond)
+        cond_score = self.cond_pred(x_emb_var, x_len, col_inp_var, col_name_len, col_len, col_num, ground_truth_where, ground_truth_cond)
 
         return (agg_score, sel_score, cond_score)
 
-    def loss(self, score, truth_num, gt_where):
+    def loss(self, score, truth_num, ground_truth_where):
         agg_score, sel_score, cond_score = score
         loss = 0
         agg_truth = list(map(lambda x: x[0], truth_num))
@@ -99,39 +97,38 @@ class Seq2SQL(nn.Module):
 
         loss += self.CE(sel_score, sel_truth_var.long())
 
-        for b in range(len(gt_where)):
+        for b in range(len(ground_truth_where)):
             if self.gpu:
-                cond_truth_var = Variable(torch.from_numpy(np.array(gt_where[b][1:])).cuda())
+                cond_truth_var = Variable(torch.from_numpy(np.array(ground_truth_where[b][1:])).cuda())
             else:
-                cond_truth_var = Variable(torch.from_numpy(np.array(gt_where[b][1:])))
-            cond_pred_score = cond_score[b, :len(gt_where[b]) - 1]
+                cond_truth_var = Variable(torch.from_numpy(np.array(ground_truth_where[b][1:])))
+            cond_pred_score = cond_score[b, :len(ground_truth_where[b]) - 1]
 
             loss += (self.CE(
-                cond_pred_score, cond_truth_var.long()) / len(gt_where))
+                cond_pred_score, cond_truth_var.long()) / len(ground_truth_where))
 
         return loss
 
-    def check_acc(self, vis_info, pred_queries, gt_queries):
+    def check_accuracy(self, pred_queries, ground_truth_queries):
         tot_err = agg_err = sel_err = cond_err = cond_num_err = \
             cond_col_err = cond_op_err = cond_val_err = 0.0
-        agg_ops = ['None', 'MAX', 'MIN', 'COUNT', 'SUM', 'AVG']
-        for b, (pred_qry, gt_qry) in enumerate(zip(pred_queries, gt_queries)):
+        for b, (pred_qry, ground_truth_qry) in enumerate(zip(pred_queries, ground_truth_queries)):
             good = True
 
             agg_pred = pred_qry['agg']
-            agg_gt = gt_qry['agg']
+            agg_gt = ground_truth_qry['agg']
             if agg_pred != agg_gt:
                 agg_err += 1
                 good = False
 
             sel_pred = pred_qry['sel']
-            sel_gt = gt_qry['sel']
+            sel_gt = ground_truth_qry['sel']
             if sel_pred != sel_gt:
                 sel_err += 1
                 good = False
 
             cond_pred = pred_qry['conds']
-            cond_gt = gt_qry['conds']
+            cond_gt = ground_truth_qry['conds']
             flag = True
             if len(cond_pred) != len(cond_gt):
                 flag = False
@@ -145,16 +142,16 @@ class Seq2SQL(nn.Module):
             for idx in range(len(cond_pred)):
                 if not flag:
                     break
-                gt_idx = tuple(x[0] for x in cond_gt).index(cond_pred[idx][0])
-                if flag and cond_gt[gt_idx][1] != cond_pred[idx][1]:
+                ground_truth_idx = tuple(x[0] for x in cond_gt).index(cond_pred[idx][0])
+                if flag and cond_gt[ground_truth_idx][1] != cond_pred[idx][1]:
                     flag = False
                     cond_op_err += 1
 
             for idx in range(len(cond_pred)):
                 if not flag:
                     break
-                gt_idx = tuple(x[0] for x in cond_gt).index(cond_pred[idx][0])
-                if flag and str(cond_gt[gt_idx][2]).lower() != \
+                ground_truth_idx = tuple(x[0] for x in cond_gt).index(cond_pred[idx][0])
+                if flag and str(cond_gt[ground_truth_idx][2]).lower() != \
                         str(cond_pred[idx][2]).lower():
                     flag = False
                     cond_val_err += 1
@@ -203,15 +200,13 @@ class Seq2SQL(nn.Module):
         agg_score, sel_score, cond_score = score
 
         ret_queries = []
-        # B = len(agg_score)
-        # B = len(sel_score)
         B = len(cond_score)
         for b in range(B):
             cur_query = {}
             cur_query['agg'] = np.argmax(agg_score[b].data.cpu().numpy())
             cur_query['sel'] = np.argmax(sel_score[b].data.cpu().numpy())
             cur_query['conds'] = []
-            all_toks = self.SQL_TOK + \
+            all_toks = self.SQL_SYNTAX_TOKENS + \
                        [x for toks in col[b] for x in
                         toks + [',']] + [''] + q[b] + ['']
             cond_toks = []

@@ -27,9 +27,7 @@ class ConditionPredictor(nn.Module):
 
         self.softmax = nn.Softmax()
 
-    def gen_gt_batch(self, tok_seq, gen_inp=True):
-        # If gen_inp: generate the input token sequence (removing <END>)
-        # Otherwise: generate the output token sequence (removing <BEG>)
+    def gen_ground_truth_batch(self, tok_seq, gen_inp=True):
         B = len(tok_seq)
         ret_len = np.array([len(one_tok_seq) - 1 for one_tok_seq in tok_seq])
         max_len = max(ret_len)
@@ -42,30 +40,28 @@ class ConditionPredictor(nn.Module):
         ret_inp = torch.from_numpy(ret_array)
         if self.gpu:
             ret_inp = ret_inp.cuda()
-        ret_inp_var = Variable(ret_inp)  # [B, max_len, max_tok_num]
+        ret_inp_var = Variable(ret_inp)
 
         return ret_inp_var, ret_len
 
     def forward(self, x_emb_var, x_len, col_inp_var, col_name_len, col_len,
-                col_num, gt_where, gt_cond):
+                col_num, ground_truth_where, ground_truth_cond):
         max_x_len = max(x_len)
         B = len(x_len)
 
         h_enc, hidden = run_lstm(self.cond_lstm, x_emb_var, x_len)
         decoder_hidden = tuple(torch.cat((hid[:2], hid[2:]), dim=2)
                                for hid in hidden)
-        if gt_where is not None:
-            gt_tok_seq, gt_tok_len = self.gen_gt_batch(gt_where, gen_inp=True)
+        if ground_truth_where is not None:
+            ground_truth_tok_seq, ground_truth_tok_len = self.gen_ground_truth_batch(ground_truth_where, gen_inp=True)
             g_s, _ = run_lstm(self.cond_decoder,
-                              gt_tok_seq, gt_tok_len, decoder_hidden)
+                              ground_truth_tok_seq, ground_truth_tok_len, decoder_hidden)
 
             h_enc_expand = h_enc.unsqueeze(1)
             g_s_expand = g_s.unsqueeze(2)
             cond_score = self.cond_out(self.cond_out_h(h_enc_expand) +
                                        self.cond_out_g(g_s_expand)).squeeze()
             for idx, num in enumerate(x_len):
-                # print (cond_score)
-                # print (cond_score.shape)
                 if num < max_x_len:
                     cond_score[idx, :, num:] = -100
         else:

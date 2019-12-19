@@ -1,69 +1,78 @@
 from util.utils import *
 from seq2sql.model.seq2sql import Seq2SQL
-import datetime
-import argparse
 from util.constants import *
 from util.graph_plotter import plot_data
 
 
 def train_seq2sql():
-    
-    USE_SMALL = True
-    
-    learning_rate = 1e-3
+    # Load training and validation (dev) dataset
+    sql_data, table_data, TRAIN_DB = load_dataset("train")
+    validation_sql_data, validation_table_data, DEV_DB = load_dataset("dev")
 
-    sql_data, table_data, val_sql_data, val_table_data, test_sql_data, test_table_data, \
-    TRAIN_DB, DEV_DB, TEST_DB = load_dataset(use_small=USE_SMALL)
+    # Load the glove word embeddings
+    word_emb = load_word_embeddings('glove/glove.6B.300d.txt')
 
-    word_emb = load_word_emb('glove/glove.6B.300d.txt', use_small=USE_SMALL)
-
+    # Initialize the target model with the word embeddings
     model = Seq2SQL(word_emb, N_word=300, gpu=GPU)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0)
 
-    agg_m, sel_m, cond_m = best_model_name()
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    init_acc = epoch_acc(model, BATCH_SIZE, val_sql_data, val_table_data)
+    # Load the file names for the best models that we find during training
+    aggregator_model, selection_model, condition_model = best_model_name()
+
+    # Initialize the starting values of accuracy by running the model once without training
+    init_acc = epoch_acc(model, BATCH_SIZE, validation_sql_data, validation_table_data)
     best_agg_acc = init_acc[1][0]
     best_agg_idx = 0
     best_sel_acc = init_acc[1][1]
     best_sel_idx = 0
     best_cond_acc = init_acc[1][2]
     best_cond_idx = 0
-    print('Init dev acc_qm: %s\n  breakdown on (agg, sel, where): %s' % init_acc)
+    print('Initial dev accuracy: %s\n  breakdown on (agg, sel, where): %s' % init_acc)
 
-    torch.save(model.sel_pred.state_dict(), sel_m)
-    torch.save(model.agg_pred.state_dict(), agg_m)
-    torch.save(model.cond_pred.state_dict(), cond_m)
+    # Save the untrained model as the initial best
+    torch.save(model.sel_pred.state_dict(), selection_model)
+    torch.save(model.agg_pred.state_dict(), aggregator_model)
+    torch.save(model.cond_pred.state_dict(), condition_model)
+    
+    # Store the losses per epoch for loss curve
     epoch_losses = []
 
     for i in range(TRAINING_EPOCHS):
-        print('Epoch %d @ %s' % (i + 1, datetime.datetime.now()))
+        print('Epoch :', i + 1)
+        
+        # Train the model on training dataset only
         epoch_loss = epoch_train(model, optimizer, BATCH_SIZE, sql_data, table_data)
         epoch_losses.append(epoch_loss)
-        print(' Loss = %s' % epoch_loss)
-        print(' Train acc_qm: %s\n   breakdown result: %s' % epoch_acc(model, BATCH_SIZE, sql_data, table_data))
-        val_acc = epoch_acc(model, BATCH_SIZE, val_sql_data, val_table_data)
-        print(' Dev acc_qm: %s\n   breakdown result: %s' % val_acc)
-        if val_acc[1][0] > best_agg_acc:
-            best_agg_acc = val_acc[1][0]
-            best_agg_idx = i + 1
-            torch.save(model.agg_pred.state_dict(), 'saved_model/epoch%d.agg_model' % (i + 1))
-            torch.save(model.agg_pred.state_dict(), agg_m)
-        if val_acc[1][1] > best_sel_acc:
-            best_sel_acc = val_acc[1][1]
-            best_sel_idx = i + 1
-            torch.save(model.sel_pred.state_dict(), 'saved_model/epoch%d.sel_model' % (i + 1))
-            torch.save(model.sel_pred.state_dict(), sel_m)
-        if val_acc[1][2] > best_cond_acc:
-            best_cond_acc = val_acc[1][2]
-            best_cond_idx = i + 1
-            torch.save(model.cond_pred.state_dict(), 'saved_model/epoch%d.cond_model' % (i + 1))
-            torch.save(model.cond_pred.state_dict(), cond_m)
 
-        print(' Best val acc = %s, on epoch %s individually' % (
+        print(' Loss =', epoch_loss)
+
+        # Check model accuracy on training and validation set
+        training_accuracy = epoch_acc(model, BATCH_SIZE, sql_data, table_data)
+        print(' Train accuracy: %s\n   breakdown result: %s' % training_accuracy)
+        
+        validation_accuracy = epoch_acc(model, BATCH_SIZE, validation_sql_data, validation_table_data)
+        print(' Dev accuracy: %s\n   breakdown result: %s' % validation_accuracy)
+        
+        # If the accuracy is better than the previous best, update the best scores and models
+        if validation_accuracy[1][0] > best_agg_acc:
+            best_agg_acc = validation_accuracy[1][0]
+            best_agg_idx = i + 1
+            torch.save(model.agg_pred.state_dict(), aggregator_model)
+        if validation_accuracy[1][1] > best_sel_acc:
+            best_sel_acc = validation_accuracy[1][1]
+            best_sel_idx = i + 1
+            torch.save(model.sel_pred.state_dict(), selection_model)
+        if validation_accuracy[1][2] > best_cond_acc:
+            best_cond_acc = validation_accuracy[1][2]
+            best_cond_idx = i + 1
+            torch.save(model.cond_pred.state_dict(), condition_model)
+
+        print(' Best val accuracy = %s, on epoch %s individually' % (
             (best_agg_acc, best_sel_acc, best_cond_acc),
             (best_agg_idx, best_sel_idx, best_cond_idx)))
 
+    # save epoch vs loss graph
     plot_data(x = range(TRAINING_EPOCHS), y = epoch_losses, xlabel = "Epochs", ylabel = "Loss", label = "Loss Graph for target seq2sql model")
 
 

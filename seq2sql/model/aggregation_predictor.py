@@ -14,7 +14,7 @@ class AggregationPredictor(nn.Module):
         self.agg_out = nn.Sequential(nn.Linear(N_h, N_h), nn.Tanh(), nn.Linear(N_h, 6))
         self.softmax = nn.Softmax()
 
-    def forward(self, x_emb_var, x_len, col_inp_var=None, col_name_len=None, col_len=None, col_num=None, gt_sel=None):
+    def forward(self, x_emb_var, x_len, col_inp_var=None, col_name_len=None, col_len=None, col_num=None, ground_truth_sel=None):
         B = len(x_emb_var)
         max_x_len = max(x_len)
 

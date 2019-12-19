@@ -1,5 +1,4 @@
 import json
-
 import torch
 from torch import nn as nn
 from torch.autograd import Variable
@@ -7,92 +6,70 @@ from library.dbengine import DBEngine
 import numpy as np
 
 
-def load_data(sql_paths, table_paths, use_small=False):
-    if not isinstance(sql_paths, list):
-        sql_paths = (sql_paths,)
-    if not isinstance(table_paths, list):
-        table_paths = (table_paths,)
+def load_dataset(dataset_to_load):
+    """Load the given dataset into memory."""
+    print("Loading dataset : ", dataset_to_load)
+    sql_data_path = 'data/tokenized_' + dataset_to_load + '.jsonl'
+    table_data_path = 'data/tokenized_' + dataset_to_load + '.tables.jsonl'
+    db_file = 'data/' + dataset_to_load + '.db'
+
     sql_data = []
     table_data = {}
+    with open(sql_data_path, encoding="utf-8") as lines:
+        for line in lines:
+            sql = json.loads(line.strip())
+            sql_data.append(sql)
 
-    for SQL_PATH in sql_paths:
-        print("Loading data from %s" % SQL_PATH)
-        with open(SQL_PATH, encoding="utf-8") as inf:
-            for idx, line in enumerate(inf):
-                if use_small and idx >= 1000:
-                    break
-                sql = json.loads(line.strip())
-                sql_data.append(sql)
+    # Build a mapping of the tables with table_id as the key
+    with open(table_data_path, encoding="utf-8") as lines:
+        for line in lines:
+            tab = json.loads(line.strip())
+            table_data[tab[u'id']] = tab
 
-    for TABLE_PATH in table_paths:
-        print("Loading data from %s" % TABLE_PATH)
-        with open(TABLE_PATH, encoding="utf-8") as inf:
-            for line in inf:
-                tab = json.loads(line.strip())
-                table_data[tab[u'id']] = tab
-
-    for sql in sql_data:
-        assert sql[u'table_id'] in table_data
-
-    return sql_data, table_data
-
-
-def load_dataset(use_small=False):
-    print("Loading dataset")
-    sql_data, table_data = load_data('data/tokenized_train.jsonl', 'data/tokenized_train.tables.jsonl', use_small=use_small)
-    val_sql_data, val_table_data = load_data('data/tokenized_dev.jsonl', 'data/tokenized_dev.tables.jsonl', use_small=use_small)
-    test_sql_data, test_table_data = load_data('data/tokenized_test.jsonl', 'data/tokenized_test.tables.jsonl', use_small=use_small)
-    TRAIN_DB = 'data/train.db'
-    DEV_DB = 'data/dev.db'
-    TEST_DB = 'data/test.db'
-
-    return sql_data, table_data, val_sql_data, val_table_data, \
-           test_sql_data, test_table_data, TRAIN_DB, DEV_DB, TEST_DB
+    return sql_data, table_data, db_file
 
 
 def best_model_name():
-    new_data = 'old'
-    mode = 'seq2sql'
-
-    agg_model_name = 'saved_model/%s_%s.agg_model' % (new_data, mode)
-    sel_model_name = 'saved_model/%s_%s.sel_model' % (new_data, mode)
-    cond_model_name = 'saved_model/%s_%s.cond_' % (new_data, mode)
-
-    return agg_model_name, sel_model_name, cond_model_name
+    """Function returns the filename that stores the best model found during training"""
+    best_aggregate_model = 'saved_model/seq2sql.agg_model'
+    best_selection_model = 'saved_model/seq2sql.sel_model'
+    best_condition_model = 'saved_model/seq2sql.cond_'
+    return best_aggregate_model, best_selection_model, best_condition_model
 
 
-def to_batch_seq(sql_data, table_data, idxes, st, ed, ret_vis_data=False):
-    q_seq = []
-    col_seq = []
-    col_num = []
-    ans_seq = []
-    query_seq = []
-    gt_cond_seq = []
-    vis_seq = []
-    for i in range(st, ed):
+def generate_batch_sequence(sql_data, table_data, idxes, start, end):
+    """Function creates a batch of input data given starting and ending indices."""
+    # A container is created for each component of the input
+    question_sequence = []
+    column_sequence = []
+    number_of_columns = []
+    answer_sequence = []
+    query_sequence = []
+    ground_truth_condition_sequence = []
+    raw_data = []
+    for i in range(start, end):
         sql = sql_data[idxes[i]]
-        q_seq.append(sql['tokenized_question'])
-        col_seq.append(table_data[sql['table_id']]['tokenized_header'])
-        col_num.append(len(table_data[sql['table_id']]['header']))
-        ans_seq.append((sql['sql']['agg'],
+        question_sequence.append(sql['tokenized_question'])
+        column_sequence.append(table_data[sql['table_id']]['tokenized_header'])
+        number_of_columns.append(len(table_data[sql['table_id']]['header']))
+        answer_sequence.append((sql['sql']['agg'],
                         sql['sql']['sel'],
                         len(sql['sql']['conds']),
                         tuple(x[0] for x in sql['sql']['conds']),
                         tuple(x[1] for x in sql['sql']['conds'])))
-        query_seq.append(sql['tokenized_query'])
-        gt_cond_seq.append(sql['sql']['conds'])
-        vis_seq.append((sql['question'],
-                        table_data[sql['table_id']]['header'], sql['query']))
-    if ret_vis_data:
-        return q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, vis_seq
-    else:
-        return q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq
+        query_sequence.append(sql['tokenized_query'])
+        ground_truth_condition_sequence.append(sql['sql']['conds'])
+        raw_data.append((sql['question'], table_data[sql['table_id']]['header'], sql['query']))
 
 
-def to_batch_query(sql_data, idxes, st, ed):
+    return question_sequence, column_sequence, number_of_columns, answer_sequence, query_sequence,\
+        ground_truth_condition_sequence, raw_data
+
+
+def generate_batch_query(sql_data, idxes, start, end):
     query_gt = []
     table_ids = []
-    for i in range(st, ed):
+    for i in range(start, end):
         query_gt.append(sql_data[idxes[i]]['sql'])
         table_ids.append(sql_data[idxes[i]]['table_id'])
     return query_gt, table_ids
@@ -101,25 +78,25 @@ def to_batch_query(sql_data, idxes, st, ed):
 def epoch_train(model, optimizer, batch_size, sql_data, table_data):
     model.train()
     perm = np.random.permutation(len(sql_data))
-    cum_loss = 0.0
-    st = 0
-    while st < len(sql_data):
-        ed = st + batch_size if st + batch_size < len(perm) else len(perm)
+    cumulative_loss = 0.0
+    start = 0
+    while start < len(sql_data):
+        end = start + batch_size if start + batch_size < len(perm) else len(perm)
 
-        q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq = \
-            to_batch_seq(sql_data, table_data, perm, st, ed)
-        gt_where_seq = model.generate_gt_where_seq(q_seq, col_seq, query_seq)
-        gt_sel_seq = [x[1] for x in ans_seq]
-        score = model.forward(q_seq, col_seq, col_num, gt_where=gt_where_seq, gt_cond=gt_cond_seq, gt_sel=gt_sel_seq)
-        loss = model.loss(score, ans_seq, gt_where_seq)
-        cum_loss += loss.data.cpu().numpy() * (ed - st)
+        q_seq, col_seq, col_num, ans_seq, query_seq, ground_truth_cond_seq, raw_data = \
+            generate_batch_sequence(sql_data, table_data, perm, start, end)
+        ground_truth_where_seq = model.generate_ground_truth_where_seq(q_seq, col_seq, query_seq)
+        ground_truth_sel_seq = [x[1] for x in ans_seq]
+        score = model.forward(q_seq, col_seq, col_num, ground_truth_where=ground_truth_where_seq, ground_truth_cond=ground_truth_cond_seq, ground_truth_sel=ground_truth_sel_seq)
+        loss = model.loss(score, ans_seq, ground_truth_where_seq)
+        cumulative_loss += loss.data.cpu().numpy() * (end - start)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        st = ed
+        start = end
 
-    return cum_loss / len(sql_data)
+    return cumulative_loss / len(sql_data)
 
 
 def epoch_exec_acc(model, batch_size, sql_data, table_data, db_path):
@@ -128,18 +105,16 @@ def epoch_exec_acc(model, batch_size, sql_data, table_data, db_path):
     model.eval()
     perm = list(range(len(sql_data)))
     tot_acc_num = 0.0
-    acc_of_log = 0.0
-    st = 0
-    while st < len(sql_data):
-        ed = st + batch_size if st + batch_size < len(perm) else len(perm)
-        q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, raw_data = \
-            to_batch_seq(sql_data, table_data, perm, st, ed, ret_vis_data=True)
+    start = 0
+    while start < len(sql_data):
+        end = start + batch_size if start + batch_size < len(perm) else len(perm)
+        q_seq, col_seq, col_num, ans_seq, query_seq, ground_truth_cond_seq, raw_data = \
+            generate_batch_sequence(sql_data, table_data, perm, start, end)
         raw_q_seq = [x[0] for x in raw_data]
         raw_col_seq = [x[1] for x in raw_data]
-        gt_where_seq = model.generate_gt_where_seq(q_seq, col_seq, query_seq)
-        query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
-        gt_sel_seq = [x[1] for x in ans_seq]
-        score = model.forward(q_seq, col_seq, col_num, gt_sel=gt_sel_seq)
+        query_gt, table_ids = generate_batch_query(sql_data, perm, start, end)
+        ground_truth_sel_seq = [x[1] for x in ans_seq]
+        score = model.forward(q_seq, col_seq, col_num, ground_truth_sel=ground_truth_sel_seq)
         pred_queries = model.gen_query(score, q_seq, col_seq, raw_q_seq, raw_col_seq)
 
         for idx, (sql_gt, sql_pred, tid) in enumerate(
@@ -153,47 +128,46 @@ def epoch_exec_acc(model, batch_size, sql_data, table_data, db_path):
                 ret_pred = None
             tot_acc_num += (ret_gt == ret_pred)
 
-        st = ed
+        start = end
 
     return tot_acc_num / len(sql_data)
 
 
-def epoch_acc(model, batch_size, sql_data, table_data):
+def epoch_acc(model, batch_size, sql_data, table_data, save_results = False):
     model.eval()
     perm = list(range(len(sql_data)))
-    st = 0
+    start = 0
     one_acc_num = 0.0
     tot_acc_num = 0.0
-    while st < len(sql_data):
-        ed = st + batch_size if st + batch_size < len(perm) else len(perm)
+    while start < len(sql_data):
+        end = start + batch_size if start + batch_size < len(perm) else len(perm)
 
-        q_seq, col_seq, col_num, ans_seq, query_seq, gt_cond_seq, raw_data = to_batch_seq(sql_data, table_data, perm,
-                                                                                          st, ed, ret_vis_data=True)
+        q_seq, col_seq, col_num, ans_seq, query_seq, ground_truth_cond_seq, raw_data =\
+            generate_batch_sequence(sql_data, table_data, perm, start, end)
         raw_q_seq = [x[0] for x in raw_data]
         raw_col_seq = [x[1] for x in raw_data]
-        query_gt, table_ids = to_batch_query(sql_data, perm, st, ed)
-        gt_sel_seq = [x[1] for x in ans_seq]
-        score = model.forward(q_seq, col_seq, col_num, gt_sel=gt_sel_seq)
+        query_gt, table_ids = generate_batch_query(sql_data, perm, start, end)
+        ground_truth_sel_seq = [x[1] for x in ans_seq]
+        score = model.forward(q_seq, col_seq, col_num, ground_truth_sel=ground_truth_sel_seq)
         pred_queries = model.gen_query(score, q_seq, col_seq,
                                        raw_q_seq, raw_col_seq)
-        one_err, tot_err = model.check_acc(raw_data,
-                                           pred_queries, query_gt)
+        one_err, tot_err = model.check_accuracy(pred_queries, query_gt)
         
-        model.save_readable_results(pred_queries, query_gt, table_ids, table_data)
-        one_acc_num += (ed - st - one_err)
-        tot_acc_num += (ed - st - tot_err)
+        if save_results:
+            model.save_readable_results(pred_queries, query_gt, table_ids, table_data)
 
-        st = ed
+        one_acc_num += (end - start - one_err)
+        tot_acc_num += (end - start - tot_err)
+
+        start = end
     return tot_acc_num / len(sql_data), one_acc_num / len(sql_data)
 
 
-def load_word_emb(file_name, use_small=False):
+def load_word_embeddings(file_name):
     print('Loading word embedding from %s' % file_name)
     ret = {}
     with open(file_name, encoding="utf-8") as inf:
         for idx, line in enumerate(inf):
-            if use_small and idx >= 40:
-                break
             info = line.strip().split(' ')
             if info[0].lower() not in ret:
                 ret[info[0]] = np.array([float(x) for x in info[1:]])
@@ -201,10 +175,7 @@ def load_word_emb(file_name, use_small=False):
 
 
 def run_lstm(lstm, inp, inp_len, hidden=None):
-    # Run the LSTM using packed sequence.
-    # This requires to first sort the input according to its length.
-    sort_perm = np.array(sorted(range(len(inp_len)),
-                                key=lambda k: inp_len[k], reverse=True))
+    sort_perm = np.array(sorted(range(len(inp_len)), key=lambda k: inp_len[k], reverse=True))
     sort_inp_len = inp_len[sort_perm]
     sort_perm_inv = np.argsort(sort_perm)
     if inp.is_cuda:
@@ -230,8 +201,7 @@ def col_name_encode(name_inp_var, name_len, col_len, enc_lstm):
     # The embedding of a column name is the last state of its LSTM output.
     name_hidden, _ = run_lstm(enc_lstm, name_inp_var, name_len)
     name_out = name_hidden[tuple(range(len(name_len))), name_len - 1]
-    ret = torch.FloatTensor(
-        len(col_len), max(col_len), name_out.size()[1]).zero_()
+    ret = torch.FloatTensor(len(col_len), max(col_len), name_out.size()[1]).zero_()
     if name_out.is_cuda:
         ret = ret.cuda()
 

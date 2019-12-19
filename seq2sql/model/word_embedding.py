@@ -5,14 +5,14 @@ import numpy as np
 
 
 class WordEmbedding(nn.Module):
-    def __init__(self, word_emb, N_word, gpu, SQL_TOK, our_model):
+    def __init__(self, word_emb, N_word, gpu, SQL_SYNTAX_TOKENS, our_model):
         super(WordEmbedding, self).__init__()
         self.N_word = N_word
         self.our_model = our_model
         self.gpu = gpu
-        self.SQL_TOK = SQL_TOK
+        self.SQL_SYNTAX_TOKENS = SQL_SYNTAX_TOKENS
         self.word_emb = word_emb
-        print("Using fixed embedding")
+
 
     def gen_x_batch(self, q, col):
         B = len(q)
@@ -28,9 +28,9 @@ class WordEmbedding(nn.Module):
                 one_col_all = [x for toks in one_col for x in toks + [',']]
                 col_val = list(
                     map(lambda x: self.word_emb.get(x, np.zeros(self.N_word, dtype=np.float32)), one_col_all))
-                val_embs.append([np.zeros(self.N_word, dtype=np.float32) for _ in self.SQL_TOK] + col_val + [
+                val_embs.append([np.zeros(self.N_word, dtype=np.float32) for _ in self.SQL_SYNTAX_TOKENS] + col_val + [
                     np.zeros(self.N_word, dtype=np.float32)] + q_val + [np.zeros(self.N_word, dtype=np.float32)])
-                val_len[i] = len(self.SQL_TOK) + len(col_val) + 1 + len(q_val) + 1
+                val_len[i] = len(self.SQL_SYNTAX_TOKENS) + len(col_val) + 1 + len(q_val) + 1
         max_len = max(val_len)
 
         val_emb_array = np.zeros((B, max_len, self.N_word), dtype=np.float32)
@@ -43,6 +43,7 @@ class WordEmbedding(nn.Module):
         val_inp_var = Variable(val_inp)
         return val_inp_var, val_len
 
+
     def gen_col_batch(self, cols):
         ret = []
         col_len = np.zeros(len(cols), dtype=np.int64)
@@ -54,6 +55,7 @@ class WordEmbedding(nn.Module):
 
         name_inp_var, name_len = self.str_list_to_batch(names)
         return name_inp_var, name_len, col_len
+
 
     def str_list_to_batch(self, str_list):
         B = len(str_list)
