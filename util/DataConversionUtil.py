@@ -60,34 +60,26 @@ class DataConversionUtil:
         file.close()
 
     @staticmethod
-    def tokenize_document(doc):
-        return nltk.word_tokenize(doc)
+    def tokenize_document(doc, print_token = False):
+        # doc = doc.lower()
+        operators = {'=' : 'EQL', '>' : 'GT', '<' : 'LT'}
+        syntax_tokens = ["SELECT", "COUNT", "WHERE", "AND", "OR", "FROM"]
+        tokens = nltk.word_tokenize(doc)
+        for i in range(len(tokens)):
+            if tokens[i] in syntax_tokens:
+                continue
+            # if print_token:
+            #     print (tokens[i])
+            if tokens[i] in operators.keys():
+                tokens[i] = operators[tokens[i]]
+            else:
+                tokens[i] = tokens[i].lower()
+        return tokens
 
     @staticmethod
     def save_dataframe(data, filename):
         data.to_json(filename, orient='records', lines=True)
 
-    def stringify_sql_data(self):
-        """Reads the input training files and generates a new file containing plain text sql queries"""
-        self.build_table_mapping()
-        queries = pd.read_json("data/train.jsonl", lines=True)
-
-        count = 0
-        stop_limit = len(queries)
-        # stop_limit = 40000
-        # iterate over the queries and convert each one to plain text sql
-        for index, line in queries.iterrows():
-            count += 1
-            # get table and query representations
-            table, query = self.get_query_from_json(line)
-            # write the query to the text file
-            self.write_query_to_file(table.query_str(query))
-            # extract question and write to file
-            self.write_english_sentence_to_file(line["question"])
-            # execute query on sqlite to check correctness
-            # self.execute_query(table, query)
-            if count > stop_limit:
-                break
 
     def build_tokenized_dataset(self, dataset):
         """Reads the input training files and generates a new file containing plain text sql queries"""
@@ -98,7 +90,7 @@ class DataConversionUtil:
         stop_limit = len(queries)
         data = pd.DataFrame()
 
-        # stop_limit = 40
+        # stop_limit = 10
         # iterate over the queries and convert each one to plain text sql
         for index, line in queries.iterrows():
             count += 1
@@ -107,11 +99,13 @@ class DataConversionUtil:
             
             # append query to dict, to add it to the datafram
             query_str = table.query_str(query)
-            line["query"] = query_str
 
             # Tokenize the query
-            tokenized_query = self.tokenize_document(query_str)
+            tokenized_query = self.tokenize_document(query_str, print_token = True)
             line["tokenized_query"] = tokenized_query
+            
+            # Fix the formatting of the query (lowercase + Uppercase syntax tokens)
+            line["query"] = " ".join(tokenized_query)
             
             # Tokenize the question
             tokenized_question = self.tokenize_document(line["question"])
@@ -120,7 +114,6 @@ class DataConversionUtil:
             line_df = pd.DataFrame(line)
             line_df = line_df.transpose()
             data = data.append(line_df)
-
             if count > stop_limit:
                 break
         
