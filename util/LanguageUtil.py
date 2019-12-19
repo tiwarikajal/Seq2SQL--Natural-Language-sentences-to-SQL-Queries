@@ -57,7 +57,6 @@ def readLangs(lang1, lang2):
     # Split every line into pairs and normalize
     pairs = []
     for idx, row in lines.iterrows():
-        print (row)
         tokens_en = row["tokenized_question"]
         tokens_sql = row["tokenized_query"]
         pairs.append([tokens_en, tokens_sql])
