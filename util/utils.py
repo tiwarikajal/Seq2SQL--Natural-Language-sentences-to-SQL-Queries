@@ -39,9 +39,9 @@ def load_data(sql_paths, table_paths, use_small=False):
 
 def load_dataset(use_small=False):
     print("Loading dataset")
-    sql_data, table_data = load_data('data/train_tok.jsonl', 'data/train_tok.tables.jsonl', use_small=use_small)
-    val_sql_data, val_table_data = load_data('data/dev_tok.jsonl', 'data/dev_tok.tables.jsonl', use_small=use_small)
-    test_sql_data, test_table_data = load_data('data/test_tok.jsonl', 'data/test_tok.tables.jsonl', use_small=use_small)
+    sql_data, table_data = load_data('data/tokenized_train.jsonl', 'data/tokenized_train.tables.jsonl', use_small=use_small)
+    val_sql_data, val_table_data = load_data('data/tokenized_dev.jsonl', 'data/tokenized_dev.tables.jsonl', use_small=use_small)
+    test_sql_data, test_table_data = load_data('data/tokenized_test.jsonl', 'data/tokenized_test.tables.jsonl', use_small=use_small)
     TRAIN_DB = 'data/train.db'
     DEV_DB = 'data/dev.db'
     TEST_DB = 'data/test.db'
@@ -71,15 +71,15 @@ def to_batch_seq(sql_data, table_data, idxes, st, ed, ret_vis_data=False):
     vis_seq = []
     for i in range(st, ed):
         sql = sql_data[idxes[i]]
-        q_seq.append(sql['question_tok'])
-        col_seq.append(table_data[sql['table_id']]['header_tok'])
+        q_seq.append(sql['tokenized_question'])
+        col_seq.append(table_data[sql['table_id']]['tokenized_header'])
         col_num.append(len(table_data[sql['table_id']]['header']))
         ans_seq.append((sql['sql']['agg'],
                         sql['sql']['sel'],
                         len(sql['sql']['conds']),
                         tuple(x[0] for x in sql['sql']['conds']),
                         tuple(x[1] for x in sql['sql']['conds'])))
-        query_seq.append(sql['query_tok'])
+        query_seq.append(sql['tokenized_query'])
         gt_cond_seq.append(sql['sql']['conds'])
         vis_seq.append((sql['question'],
                         table_data[sql['table_id']]['header'], sql['query']))
@@ -191,7 +191,7 @@ def load_word_emb(file_name, use_small=False):
     ret = {}
     with open(file_name, encoding="utf-8") as inf:
         for idx, line in enumerate(inf):
-            if use_small and idx >= 5000:
+            if use_small and idx >= 40:
                 break
             info = line.strip().split(' ')
             if info[0].lower() not in ret:

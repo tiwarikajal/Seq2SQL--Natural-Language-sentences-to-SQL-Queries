@@ -67,15 +67,15 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     return loss.item() / target_length
 
 
-def trainIters(encoder, decoder, n_iters, print_every=10, plot_every=20, learning_rate=0.001):
+def trainIters(encoder, decoder, n_iters, print_every=10, plot_every=20, learning_rate=0.0005):
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
 
-    encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+    encoder_optimizer = optim.Adam(encoder.parameters(), lr=learning_rate)
+    decoder_optimizer = optim.Adam(decoder.parameters(), lr=learning_rate)
     training_pairs = [tensorsFromPair(random.choice(pairs), input_lang, output_lang) for i in range(n_iters)]
-    criterion = nn.NLLLoss()
+    criterion = nn.CrossEntropyLoss()
 
     for iter in range(1, n_iters + 1):
         training_pair = training_pairs[iter - 1]
@@ -143,9 +143,9 @@ def evaluateRandomly(encoder, decoder, n=1000):
         print('=', pair[1])
         output_words, attentions = evaluate(encoder, decoder, pair[0])
         output_sentence = ' '.join(output_words)
-        if output_sentence[:-6] == pair[1]:
+        if output_sentence[:-6] == ' '.join(pair[1]):
             counter += 1
-        print('<', output_sentence)
+        print('<', output_words)
         print('')
     print("Correct Examples : {} out of {}".format(counter, n))
 
@@ -153,7 +153,7 @@ def evaluateRandomly(encoder, decoder, n=1000):
 def run_baseline():
     hidden_size = 256
     x = DataConversionUtil()
-    x.stringify_sql_data()
+    # x.stringify_sql_data()
     global input_lang
     global output_lang
     global pairs
@@ -162,7 +162,7 @@ def run_baseline():
     decoder1 = DecoderRNN(hidden_size, output_lang.n_words).to(device)
     attn_decoder1 = AttnDecoderRNN(hidden_size, output_lang.n_words, dropout_p=0.1).to(device)
 
-    trainIters(encoder1, attn_decoder1, 2000, print_every=1000, plot_every=1000)
+    trainIters(encoder1, attn_decoder1, 250000, print_every=1000, plot_every=1000)
     evaluateRandomly(encoder1, attn_decoder1, n=1000)
 
 

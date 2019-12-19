@@ -14,7 +14,7 @@ def train_seq2sql():
         GPU = True
         BATCH_SIZE = 15
     else:
-        USE_SMALL = True
+        USE_SMALL = False
         GPU = True
         BATCH_SIZE = 64
 
