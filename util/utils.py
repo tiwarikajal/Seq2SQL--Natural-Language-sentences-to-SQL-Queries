@@ -178,7 +178,8 @@ def epoch_acc(model, batch_size, sql_data, table_data):
                                        raw_q_seq, raw_col_seq)
         one_err, tot_err = model.check_acc(raw_data,
                                            pred_queries, query_gt)
-
+        
+        model.save_readable_results(pred_queries, query_gt, table_ids, table_data)
         one_acc_num += (ed - st - one_err)
         tot_acc_num += (ed - st - tot_err)
 

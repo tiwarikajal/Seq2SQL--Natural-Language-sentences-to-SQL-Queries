@@ -6,6 +6,8 @@ from seq2sql.model.word_embedding import WordEmbedding
 from seq2sql.model.aggregation_predictor import AggregationPredictor
 from seq2sql.model.selection_predictor import SelectionClausePredictor
 from seq2sql.model.condition_predictor import ConditionPredictor
+from library.table import Table
+from library.query import Query
 
 
 class Seq2SQL(nn.Module):
@@ -24,13 +26,6 @@ class Seq2SQL(nn.Module):
         self.COND_OPS = ['EQL', 'GT', 'LT']
 
         # Word embedding
-
-        self.agg_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                             self.SQL_TOK, our_model=False)
-        self.sel_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                             self.SQL_TOK, our_model=False)
-        self.cond_embed_layer = WordEmbedding(word_emb, N_word, gpu,
-                                              self.SQL_TOK, our_model=False)
         self.embed_layer = WordEmbedding(word_emb, N_word, gpu,
                                          self.SQL_TOK, our_model=False)
 
@@ -44,19 +39,12 @@ class Seq2SQL(nn.Module):
         self.cond_pred = ConditionPredictor(
             N_word, N_h, N_depth, self.max_col_num, self.max_tok_num, gpu)
 
+        # Loss function
         self.CE = nn.CrossEntropyLoss()
-        self.softmax = nn.Softmax()
-        self.log_softmax = nn.LogSoftmax()
-        self.bce_logit = nn.BCEWithLogitsLoss()
         if gpu:
             self.cuda()
 
     def generate_gt_where_seq(self, q, col, query):
-        # data format
-        # <BEG> WHERE cond1_col cond1_op cond1
-        #         AND cond2_col cond2_op cond2
-        #         AND ... <END>
-
         ret_seq = []
         for cur_q, cur_col, cur_query in zip(q, col, query):
             connect_col = [tok for col_tok in cur_col for tok in col_tok + [',']]
@@ -124,23 +112,6 @@ class Seq2SQL(nn.Module):
         return loss
 
     def check_acc(self, vis_info, pred_queries, gt_queries):
-        def pretty_print(vis_data):
-            print('question:', vis_data[0])
-            print('headers: (%s)' % (' || '.join(vis_data[1])))
-            print('query:', vis_data[2])
-
-        def gen_cond_str(conds, header):
-            if len(conds) == 0:
-                return 'None'
-            cond_str = []
-            for cond in conds:
-                cond_str.append(
-                    header[cond[0]] + ' ' + self.COND_OPS[cond[1]] + \
-                    ' ' + str(cond[2]).lower())
-            return 'WHERE ' + ' AND '.join(cond_str)
-
-        B = len(gt_queries)
-
         tot_err = agg_err = sel_err = cond_err = cond_num_err = \
             cond_col_err = cond_op_err = cond_val_err = 0.0
         agg_ops = ['None', 'MAX', 'MIN', 'COUNT', 'SUM', 'AVG']
@@ -232,8 +203,8 @@ class Seq2SQL(nn.Module):
         agg_score, sel_score, cond_score = score
 
         ret_queries = []
-        B = len(agg_score)
-        B = len(sel_score)
+        # B = len(agg_score)
+        # B = len(sel_score)
         B = len(cond_score)
         for b in range(B):
             cur_query = {}
@@ -286,3 +257,19 @@ class Seq2SQL(nn.Module):
             ret_queries.append(cur_query)
 
         return ret_queries
+
+
+    def save_readable_results(self, predicted_query, ground_truth, table_ids, table_data):
+        file = open("./target_model_results.txt", "a+", encoding="utf-8")
+        for index in range(len(predicted_query)):
+            predicted_query_object = Query.from_dict(predicted_query[index])
+            ground_truth_query_object = Query.from_dict(ground_truth[index])
+            table_id = table_ids[index]
+            table_info = table_data[table_id]
+            table = Table(table_id, table_info["header"], table_info["types"], table_info["rows"])
+            
+            file.write(table.query_str(ground_truth_query_object))
+            file.write("\n")
+            file.write(table.query_str(predicted_query_object))
+            file.write("\n\n")
+        file.close()

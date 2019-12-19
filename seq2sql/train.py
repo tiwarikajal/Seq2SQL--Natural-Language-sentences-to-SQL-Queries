@@ -2,22 +2,14 @@ from util.utils import *
 from seq2sql.model.seq2sql import Seq2SQL
 import datetime
 import argparse
+from util.constants import *
+from util.graph_plotter import plot_data
 
 
 def train_seq2sql():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--toy', action='store_true', help='If set, use small data; used for fast debugging.')
-    args = parser.parse_args()
-
-    if args.toy:
-        USE_SMALL = True
-        GPU = True
-        BATCH_SIZE = 15
-    else:
-        USE_SMALL = False
-        GPU = True
-        BATCH_SIZE = 64
-
+    
+    USE_SMALL = True
+    
     learning_rate = 1e-3
 
     sql_data, table_data, val_sql_data, val_table_data, test_sql_data, test_table_data, \
@@ -42,11 +34,13 @@ def train_seq2sql():
     torch.save(model.sel_pred.state_dict(), sel_m)
     torch.save(model.agg_pred.state_dict(), agg_m)
     torch.save(model.cond_pred.state_dict(), cond_m)
-    for i in range(50):
+    epoch_losses = []
+
+    for i in range(TRAINING_EPOCHS):
         print('Epoch %d @ %s' % (i + 1, datetime.datetime.now()))
-        print(' Loss = %s' % epoch_train(
-            model, optimizer, BATCH_SIZE,
-            sql_data, table_data))
+        epoch_loss = epoch_train(model, optimizer, BATCH_SIZE, sql_data, table_data)
+        epoch_losses.append(epoch_loss)
+        print(' Loss = %s' % epoch_loss)
         print(' Train acc_qm: %s\n   breakdown result: %s' % epoch_acc(model, BATCH_SIZE, sql_data, table_data))
         val_acc = epoch_acc(model, BATCH_SIZE, val_sql_data, val_table_data)
         print(' Dev acc_qm: %s\n   breakdown result: %s' % val_acc)
@@ -69,6 +63,8 @@ def train_seq2sql():
         print(' Best val acc = %s, on epoch %s individually' % (
             (best_agg_acc, best_sel_acc, best_cond_acc),
             (best_agg_idx, best_sel_idx, best_cond_idx)))
+
+    plot_data(x = range(TRAINING_EPOCHS), y = epoch_losses, xlabel = "Epochs", ylabel = "Loss", label = "Loss Graph for target seq2sql model")
 
 
 if __name__ == '__main__':

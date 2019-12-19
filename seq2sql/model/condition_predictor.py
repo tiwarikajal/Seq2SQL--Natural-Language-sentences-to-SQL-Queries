@@ -64,6 +64,8 @@ class ConditionPredictor(nn.Module):
             cond_score = self.cond_out(self.cond_out_h(h_enc_expand) +
                                        self.cond_out_g(g_s_expand)).squeeze()
             for idx, num in enumerate(x_len):
+                # print (cond_score)
+                # print (cond_score.shape)
                 if num < max_x_len:
                     cond_score[idx, :, num:] = -100
         else:

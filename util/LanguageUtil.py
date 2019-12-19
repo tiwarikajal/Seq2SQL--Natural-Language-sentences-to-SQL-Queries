@@ -6,7 +6,6 @@ import unicodedata
 import torch
 from util.constants import *
 import nltk
-import shlex
 import pandas as pd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -34,21 +33,6 @@ class LanguageUtil:
             self.word2count[word] += 1
 
 
-# Turn a Unicode string to plain ASCII, thanks to
-# https://stackoverflow.com/a/518232/2809427
-def unicodeToAscii(s):
-    return ''.join(
-        c for c in unicodedata.normalize('NFD', s)
-        if unicodedata.category(c) != 'Mn'
-    )
-
-
-# Lowercase, trim, and remove non-letter characters
-def normalizeString(s):
-    s = unicodeToAscii(s.lower().strip())
-    return s
-
-
 def readLangs(lang1, lang2):
     print("Reading lines...")
 
@@ -57,12 +41,10 @@ def readLangs(lang1, lang2):
     # Split every line into pairs and normalize
     pairs = []
     for idx, row in lines.iterrows():
-        print (row)
         tokens_en = row["tokenized_question"]
         tokens_sql = row["tokenized_query"]
         pairs.append([tokens_en, tokens_sql])
 
-    # Reverse pairs, make Lang instances
     input_lang = LanguageUtil(lang1)
     output_lang = LanguageUtil(lang2)
 
@@ -84,11 +66,6 @@ def prepareData(lang1, lang2):
 
 
 def indexesFromSentence(lang, sentence):
-    # try:
-    #     parts = shlex.split(sentence, posix=False)
-    # except:
-    #     parts = sentence.split(" ")
-
     return [lang.word2index[word] for word in sentence]
 
 
@@ -96,7 +73,6 @@ def tensorFromSentence(lang, sentence):
     indexes = indexesFromSentence(lang, sentence)
     indexes.append(EOS_token)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
-
 
 def tensorsFromPair(pair, input_lang, output_lang):
     input_tensor = tensorFromSentence(input_lang, pair[0])

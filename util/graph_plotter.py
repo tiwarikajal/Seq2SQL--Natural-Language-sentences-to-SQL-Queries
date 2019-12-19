@@ -1,9 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-
-
-# plt.switch_backend('TkAgg')
-
+import numpy as np
 
 def showPlot(points, plot_name):
     plt.figure()
@@ -13,3 +10,12 @@ def showPlot(points, plot_name):
     ax.yaxis.set_major_locator(loc)
     plt.plot(points)
     plt.savefig(plot_name + ".png")
+
+
+def plot_data(x, y, xlabel = "x", ylabel = "y", label = 'plot'):
+	plt.figure()
+	plt.plot(x, y)
+	plt.xlabel(xlabel)
+	plt.ylabel(ylabel)
+	print("Generating plot for ", label)
+	plt.savefig("./" + label + ".png")
