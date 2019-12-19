@@ -2,8 +2,8 @@ from baseline import baseline
 from seq2sql import train as train_target
 from seq2sql import test as test_target
 
-print("Running baseline")
-baseline.run_baseline()
+# print("Running baseline")
+# baseline.run_baseline()
 
 print("Training target model")
 train_target.train_seq2sql()

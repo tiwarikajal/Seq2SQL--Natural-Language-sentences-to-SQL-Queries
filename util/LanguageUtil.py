@@ -7,6 +7,7 @@ import torch
 from util.constants import *
 import nltk
 import shlex
+import pandas as pd
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -20,13 +21,7 @@ class LanguageUtil:
         self.n_words = 2  # Count SOS and EOS
 
     def addSentence(self, sentence):
-        # try:
-        #     parts = shlex.split(sentence, posix=False)
-        # except:
-        #     parts = sentence.split(" ")
-
-        parts = sentence.split(" ")
-        for word in parts:
+        for word in sentence:
             self.addWord(word)
 
     def addWord(self, word):
@@ -57,17 +52,14 @@ def normalizeString(s):
 def readLangs(lang1, lang2):
     print("Reading lines...")
 
-    lines_en = open('data/train_en.txt', encoding='utf-8'). \
-        read().strip().split('\n')
-
-    lines_sql = open('data/train_sql.txt', encoding='utf-8'). \
-        read().strip().split('\n')
+    lines = pd.read_json("data/tokenized_train.jsonl", lines=True)
 
     # Split every line into pairs and normalize
     pairs = []
-    for i in range(len(lines_en)):
-        tokens_en = normalizeString(lines_en[i])
-        tokens_sql = normalizeString(lines_sql[i])
+    for idx, row in lines.iterrows():
+        print (row)
+        tokens_en = row["tokenized_question"]
+        tokens_sql = row["tokenized_query"]
         pairs.append([tokens_en, tokens_sql])
 
     # Reverse pairs, make Lang instances
@@ -91,18 +83,13 @@ def prepareData(lang1, lang2):
     return input_lang, output_lang, pairs
 
 
-# input_lang, output_lang, pairs = prepareData('eng', 'sql')
-# print(random.choice(pairs))
-
-
 def indexesFromSentence(lang, sentence):
     # try:
     #     parts = shlex.split(sentence, posix=False)
     # except:
     #     parts = sentence.split(" ")
 
-    parts = sentence.split(" ")
-    return [lang.word2index[word] for word in parts]
+    return [lang.word2index[word] for word in sentence]
 
 
 def tensorFromSentence(lang, sentence):

@@ -3,6 +3,7 @@ import records
 from library.table import Table
 from library.query import Query
 import pandas as pd
+import nltk
 
 
 class DataConversionUtil:
@@ -11,11 +12,19 @@ class DataConversionUtil:
     def __init__(self):
         self.table_map = {}  # key is table_id, value is all the table data
 
-    def build_table_mapping(self):
+    def build_table_mapping(self, dataset):
         """Reads the tables file and creates a dictionary with table id as key and all other data as value"""
-        tables = pd.read_json("data/train.tables.jsonl", lines=True)
+        tables = pd.read_json("data/" + dataset + ".tables.jsonl", lines=True)
+        data = pd.DataFrame()
         for index, line in tables.iterrows():
             self.table_map[line["id"]] = line
+            line["tokenized_header"] = []
+            for column_header in line["header"]:
+                line["tokenized_header"].append(self.tokenize_document(column_header))
+            line_df = pd.DataFrame(line)
+            line_df = line_df.transpose()
+            data = data.append(line_df)
+        self.save_dataframe(data, "data/tokenized_" + dataset + ".tables.jsonl")
 
     def get_query_from_json(self, json_line):
         """Returns a Query object for the json input and returns the table object as well"""
@@ -50,14 +59,22 @@ class DataConversionUtil:
         file.write("\n")
         file.close()
 
+    @staticmethod
+    def tokenize_document(doc):
+        return nltk.word_tokenize(doc)
+
+    @staticmethod
+    def save_dataframe(data, filename):
+        data.to_json(filename, orient='records', lines=True)
+
     def stringify_sql_data(self):
         """Reads the input training files and generates a new file containing plain text sql queries"""
         self.build_table_mapping()
         queries = pd.read_json("data/train.jsonl", lines=True)
 
         count = 0
-        # stop_limit = len(queries)
-        stop_limit = 40000
+        stop_limit = len(queries)
+        # stop_limit = 40000
         # iterate over the queries and convert each one to plain text sql
         for index, line in queries.iterrows():
             count += 1
@@ -72,28 +89,40 @@ class DataConversionUtil:
             if count > stop_limit:
                 break
 
+    def build_tokenized_dataset(self, dataset):
+        """Reads the input training files and generates a new file containing plain text sql queries"""
+        self.build_table_mapping(dataset)
+        queries = pd.read_json("data/" + dataset + ".jsonl", lines=True)
 
-def test():
-    # convert query dict to text (without correct column references)
-    details = {"sel": 5, "conds": [[3, 0, "SOUTH AUSTRALIA"]], "agg": 0}
-    test_str = Query(details["sel"], details["agg"], details["conds"])
-    print(test_str)
+        count = 0
+        stop_limit = len(queries)
+        data = pd.DataFrame()
 
-    db = records.Database('sqlite:///data/train.db')
-    conn = db.get_connection()
+        # stop_limit = 40
+        # iterate over the queries and convert each one to plain text sql
+        for index, line in queries.iterrows():
+            count += 1
+            # get table and query representations
+            table, query = self.get_query_from_json(line)
+            
+            # append query to dict, to add it to the datafram
+            query_str = table.query_str(query)
+            line["query"] = query_str
 
-    # convert query dict to text with table reference (still does not give the correct columns)
-    # because header is not supplied
-    table = Table.from_db(conn, "1-1000181-1")
-    print(table.query_str(test_str))
+            # Tokenize the query
+            tokenized_query = self.tokenize_document(query_str)
+            line["tokenized_query"] = tokenized_query
+            
+            # Tokenize the question
+            tokenized_question = self.tokenize_document(line["question"])
+            line["tokenized_question"] = tokenized_question
 
-    # convert query dict to text with table reference after supplying headers
-    table_data = {
-        "id": "1-1000181-1", "header": [
-            "State/territory", "Text/background colour", "Format", "Current slogan", "Current series", "Notes"
-        ],
-        "types": [],
-        "rows": []
-    }
-    t = Table(table_data["id"], table_data["header"], table_data["types"], table_data["rows"])
-    print(t.query_str(test_str))
+            line_df = pd.DataFrame(line)
+            line_df = line_df.transpose()
+            data = data.append(line_df)
+
+            if count > stop_limit:
+                break
+        
+        # Save dataframe to file
+        self.save_dataframe(data, "data/tokenized_" + dataset + ".jsonl")
