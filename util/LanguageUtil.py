@@ -51,6 +51,38 @@ def readLangs(lang1, lang2):
     return input_lang, output_lang, pairs
 
 
+def prepareValData(lang1, lang2):
+    input_lang, output_lang, pairs = readLangs_val(lang1, lang2)
+    print("Read %s sentence pairs" % len(pairs))
+    print("Trimmed to %s sentence pairs" % len(pairs))
+    print("Counting words...")
+    for pair in pairs:
+        input_lang.addSentence(pair[0])
+        output_lang.addSentence(pair[1])
+    print("Counted words:")
+    print(input_lang.name, input_lang.n_words)
+    print(output_lang.name, output_lang.n_words)
+    return input_lang, output_lang, pairs
+
+
+def readLangs_val(lang1, lang2):
+    print("Reading lines...")
+
+    lines = pd.read_json("data/tokenized_dev.jsonl", lines=True)
+
+    # Split every line into pairs and normalize
+    pairs = []
+    for idx, row in lines.iterrows():
+        tokens_en = row["tokenized_question"]
+        tokens_sql = row["tokenized_query"]
+        pairs.append([tokens_en, tokens_sql])
+
+    input_lang = LanguageUtil(lang1)
+    output_lang = LanguageUtil(lang2)
+
+    return input_lang, output_lang, pairs
+
+
 def prepareData(lang1, lang2):
     input_lang, output_lang, pairs = readLangs(lang1, lang2)
     print("Read %s sentence pairs" % len(pairs))

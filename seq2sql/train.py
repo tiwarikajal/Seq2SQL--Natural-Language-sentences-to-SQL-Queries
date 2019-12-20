@@ -45,14 +45,14 @@ def train_seq2sql():
         epoch_loss = epoch_train(model, optimizer, BATCH_SIZE, sql_data, table_data)
         epoch_losses.append(epoch_loss)
 
-        print(' Loss =', epoch_loss)
+        print('Loss =', epoch_loss)
 
         # Check model accuracy on training and validation set
         training_accuracy = epoch_acc(model, BATCH_SIZE, sql_data, table_data)
-        print(' Train accuracy: %s\n   breakdown result: %s' % training_accuracy)
+        print('Train accuracy: %s\n   breakdown result: %s' % training_accuracy)
         
         validation_accuracy = epoch_acc(model, BATCH_SIZE, validation_sql_data, validation_table_data)
-        print(' Dev accuracy: %s\n   breakdown result: %s' % validation_accuracy)
+        print('Dev accuracy: %s\n   breakdown result: %s' % validation_accuracy)
         
         # If the accuracy is better than the previous best, update the best scores and models
         if validation_accuracy[1][0] > best_agg_acc:
@@ -68,7 +68,7 @@ def train_seq2sql():
             best_cond_idx = i + 1
             torch.save(model.cond_pred.state_dict(), condition_model)
 
-        print(' Best val accuracy = %s, on epoch %s individually' % (
+        print('Best val accuracy = %s, on epoch %s individually' % (
             (best_agg_acc, best_sel_acc, best_cond_acc),
             (best_agg_idx, best_sel_idx, best_cond_idx)))
 
