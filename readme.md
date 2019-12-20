@@ -12,10 +12,11 @@ Here we have also implemented the baseline sequence to sequence model
 - Install sqlite using the links here [https://www.sqlite.org/download.html](https://www.sqlite.org/download.html)
 - Next, install the project requirements using `pip install -r requirements.txt`
 - Download the glove embeddings from http://nlp.stanford.edu/data/glove.6B.zip
-- Extract the archive into the glove folder. We require only the `glove.6B.300d` file and the other versions can be deleted
+- Extract the archive into the glove folder
 - Run the pre-processing script `python preprocess.py` . This will create the tokenized versions of the dataset
 - Run `python main.py` . This will run the baseline model followed by the target model.
 - Running `main.py` will take approximately 10 hours. Please make sure to use a system with a good GPU.
+- It is highly recommended that this project is run in an anaconda environment. This will give the interpreter access to common libraries that may have been missed in requirements.txt
 
 
 ### Folder Structure
@@ -24,7 +25,7 @@ Here we have also implemented the baseline sequence to sequence model
 - The `util` directory contains files related to common functionality such as plotting graphs, loading datasets, preparing parallel datasets in-memory for fast access, creating batch sequences for models, and checking model accuracy.
 - The `baseline` directory contains all code necessary for the baseline to run
 - The `seq2sql` directory contains all code pertaining to the target model 
--  The `saved_model` directory is where the target model will save the best model after training
+- The `saved_model` directory is where the target model will save the best model after training
 
 
 ### Important Files
