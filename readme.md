@@ -1,6 +1,6 @@
 
 # Natural Language to SQL
-Project by : Kaartikey Natrajan, Kajal Tiwari, Gursimran Kaur and Varun Prasad
+
 
 This project is an implementation of the Seq2SQL model described in [https://arxiv.org/pdf/1709.00103.pdf](https://arxiv.org/pdf/1709.00103.pdf)
 
